@@ -1,0 +1,22 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install --legacy-peer-deps"]
+
+[phases.build]
+# O segredo está nestas 3 linhas de comando:
+cmds = [
+  "npm run build",
+  "cp -r public .next/standalone/public",
+  "cp -r .next/static .next/standalone/.next/static"
+]
+
+[start]
+# O Coolify vai rodar o servidor daqui de dentro agora
+cmd = "node .next/standalone/server.js"
+
+[variables]
+HOSTNAME = "0.0.0.0"
+PORT = "3000"
+NODE_ENV = "production"
