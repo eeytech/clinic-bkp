@@ -35,9 +35,6 @@ export default async function PatientFinancialsPage({
   if (!session.user.clinic) {
     redirect("/clinic");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
 
   const patient = await db.query.patientsTable.findFirst({
     where: and(
@@ -73,3 +70,4 @@ export default async function PatientFinancialsPage({
     </PageContainer>
   );
 }
+

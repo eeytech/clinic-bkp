@@ -33,9 +33,6 @@ export default async function OdontogramPage({ params: paramsPromise }: Props) {
   if (!session.user.clinic) {
     redirect("/clinic");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
 
   const patientPromise = db.query.patientsTable.findFirst({
     where: eq(patientsTable.id, params.patientId),
@@ -76,3 +73,4 @@ export default async function OdontogramPage({ params: paramsPromise }: Props) {
     </PageContainer>
   );
 }
+

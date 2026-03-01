@@ -35,9 +35,6 @@ const DoctorsPage = async ({ searchParams }: DoctorsPageProps) => {
   if (!session?.user) {
     redirect("/authentication");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
   if (!session.user.clinic) {
     redirect("/clinic");
   }
@@ -107,3 +104,4 @@ const DoctorsPage = async ({ searchParams }: DoctorsPageProps) => {
 };
 
 export default DoctorsPage;
+

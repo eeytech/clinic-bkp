@@ -26,9 +26,6 @@ export default async function SupportTicketsPage() {
   if (!session.user.clinic) {
     redirect("/clinic");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
 
   // Buscar os chamados existentes
   const ticketsResult = await getSupportTickets();
@@ -55,3 +52,4 @@ export default async function SupportTicketsPage() {
     </PageContainer>
   );
 }
+

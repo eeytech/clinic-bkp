@@ -2,9 +2,7 @@
 
 import {
   CalendarDays,
-  DollarSign,
-  Gem,
-  LayoutDashboard,
+  DollarSign,  LayoutDashboard,
   LifeBuoy,
   LogOut,
   Settings,
@@ -64,8 +62,7 @@ const menuItems = [
 ];
 
 const otherItems = [
-  { title: "Assinatura", url: "/subscription", icon: Gem },
-  { title: "Abertura de Chamados", url: "/support-tickets", icon: LifeBuoy },
+    { title: "Abertura de Chamados", url: "/support-tickets", icon: LifeBuoy },
 ];
 
 export function AppSidebar() {
@@ -231,3 +228,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+

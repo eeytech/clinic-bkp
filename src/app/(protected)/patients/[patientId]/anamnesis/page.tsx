@@ -32,9 +32,6 @@ export default async function AnamnesisPage({ params: paramsPromise }: Props) {
   if (!session.user.clinic) {
     redirect("/clinic");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
 
   const patient = await db.query.patientsTable.findFirst({
     where: eq(patientsTable.id, params.patientId),
@@ -61,3 +58,4 @@ export default async function AnamnesisPage({ params: paramsPromise }: Props) {
     </PageContainer>
   );
 }
+

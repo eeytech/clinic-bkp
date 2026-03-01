@@ -19,9 +19,6 @@ const ClinicFormPage = async () => {
   if (!session) {
     redirect("/login");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
   if (session.user.clinic) {
     redirect("/dashboard");
   }
@@ -45,3 +42,4 @@ const ClinicFormPage = async () => {
 };
 
 export default ClinicFormPage;
+

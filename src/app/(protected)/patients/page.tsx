@@ -29,9 +29,6 @@ const PatientsPage = async () => {
   if (!session.user.clinic) {
     redirect("/clinic");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
 
   const patients = await db.query.patientsTable.findMany({
     where: eq(patientsTable.clinicId, session.user.clinic.id),
@@ -59,3 +56,4 @@ const PatientsPage = async () => {
 };
 
 export default PatientsPage;
+

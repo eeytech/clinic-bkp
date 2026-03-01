@@ -30,9 +30,6 @@ export default async function PatientDetailPage({
   if (!session.user.clinic) {
     redirect("/clinic");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
 
   // Busca do paciente garantindo que pertence à clínica do usuário
   const patientResult = await db.query.patientsTable.findFirst({
@@ -67,3 +64,4 @@ export default async function PatientDetailPage({
     </PageContainer>
   );
 }
+

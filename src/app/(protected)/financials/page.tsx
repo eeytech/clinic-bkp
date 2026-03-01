@@ -51,8 +51,7 @@ export default async function FinancialsPage({
 
   if (!session?.user) redirect("/authentication");
   if (!session.user.clinic) redirect("/clinic");
-  if (!session.user.plan) redirect("/new-subscription");
-
+  
   const clinicId = session.user.clinic.id;
 
   // Fetch data needed for filters/forms concurrently
@@ -132,3 +131,4 @@ export default async function FinancialsPage({
     </PageContainer>
   );
 }
+

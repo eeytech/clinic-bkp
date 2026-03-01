@@ -45,9 +45,6 @@ const AppointmentsPage = async ({ searchParams }: AppointmentsPageProps) => {
   if (!session.user.clinic) {
     redirect("/clinic");
   }
-  if (!session.user.plan) {
-    redirect("/new-subscription");
-  }
 
   const resolvedSearchParams = await searchParams;
   // Desestruturação atualizada para from e to
@@ -137,3 +134,4 @@ const AppointmentsPage = async ({ searchParams }: AppointmentsPageProps) => {
 };
 
 export default AppointmentsPage;
+
