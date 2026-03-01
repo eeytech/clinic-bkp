@@ -44,14 +44,7 @@ const LoginForm = () => {
 
   const handleSubmit = async (values: z.infer<typeof loginSchema>) => {
     try {
-      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_API_URL;
-
-      if (!adminUrl) {
-        throw new Error("Configuração NEXT_PUBLIC_ADMIN_API_URL ausente.");
-      }
-
-      // Requisição para o Admin Central
-      const response = await fetch(`${adminUrl}/api/auth/login`, {
+      const response = await fetch("/api/admin-auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // ESSENCIAL: Permite receber e guardar cookies cross-origin
@@ -134,3 +127,4 @@ const LoginForm = () => {
 };
 
 export default LoginForm;
+
