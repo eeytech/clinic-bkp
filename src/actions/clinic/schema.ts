@@ -68,3 +68,10 @@ export const upsertClinicSchema = z.object({
 });
 
 export type UpsertClinicSchema = z.infer<typeof upsertClinicSchema>;
+
+// --- NOVO SCHEMA PARA GESTÃO DE USUÁRIOS ---
+export const addUserToClinicSchema = z.object({
+  email: z.string().email("E-mail inválido"),
+});
+
+export type AddUserToClinicSchema = z.infer<typeof addUserToClinicSchema>;
