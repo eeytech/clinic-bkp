@@ -67,13 +67,21 @@ interface UpsertClinicFormProps {
   onSuccess?: () => void;
 }
 
+type SessionCompany = {
+  id: string;
+  name: string;
+};
+
 const nullableString = (value: string | null | undefined) =>
   value === "" ? null : value;
 
 const UpsertClinicForm = ({ clinicData, onSuccess }: UpsertClinicFormProps) => {
   const isEditing = !!clinicData;
+  const [companies, setCompanies] = React.useState<SessionCompany[]>([]);
+  const [isLoadingCompanies, setIsLoadingCompanies] = React.useState(true);
 
   const defaultValues: UpsertClinicSchema = {
+    clinicId: clinicData?.id ?? "",
     id: clinicData?.id,
     name: clinicData?.name ?? "",
     cnpj: clinicData?.cnpj ?? "",
@@ -101,6 +109,42 @@ const UpsertClinicForm = ({ clinicData, onSuccess }: UpsertClinicFormProps) => {
     defaultValues: defaultValues as any,
   });
 
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadCompanies = async () => {
+      try {
+        const response = await fetch("/api/admin-auth/session", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const nextCompanies = data?.session?.companies ?? [];
+
+        if (!isMounted) return;
+
+        setCompanies(nextCompanies);
+
+        if (nextCompanies.length > 0 && !form.getValues("clinicId")) {
+          form.setValue("clinicId", clinicData?.id ?? nextCompanies[0].id, {
+            shouldValidate: true,
+          });
+        }
+      } finally {
+        if (isMounted) setIsLoadingCompanies(false);
+      }
+    };
+
+    loadCompanies();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clinicData?.id, form]);
+
   const upsertClinicAction = useAction(upsertClinic, {
     onSuccess: () => {
       toast.success(
@@ -122,6 +166,11 @@ const UpsertClinicForm = ({ clinicData, onSuccess }: UpsertClinicFormProps) => {
   });
 
   const onSubmit = (values: UpsertClinicSchema) => {
+    if (clinicData?.id && values.clinicId !== clinicData.id) {
+      toast.error("Troque a clÃ­nica ativa no menu para editar outra clÃ­nica.");
+      return;
+    }
+
     const transformedValues: UpsertClinicSchema = {
       ...values,
       cnpj: nullableString(values.cnpj),
@@ -174,6 +223,40 @@ const UpsertClinicForm = ({ clinicData, onSuccess }: UpsertClinicFormProps) => {
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             Dados Gerais
           </h3>
+          <FormField
+            control={form.control}
+            name="clinicId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Selecionar ClÃ­nica</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={isLoadingCompanies || companies.length === 0}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          isLoadingCompanies
+                            ? "A carregar clÃ­nicas..."
+                            : "Selecione a clÃ­nica"
+                        }
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <FormField
               control={form.control}

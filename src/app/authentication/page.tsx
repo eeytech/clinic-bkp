@@ -1,18 +1,17 @@
+import Image from "next/image";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Image from "next/image";
+
 import LoginForm from "./components/login-form";
 import SignUpForm from "./components/sign-up-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default async function AuthenticationPage() {
-  // Verifica se já existe um cookie de sessão
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value;
 
-  // Se já estiver logado, manda para o dashboard direto
   if (token) {
-    redirect("/dashboard");
+    redirect("/clinic/select");
   }
 
   return (
@@ -26,9 +25,7 @@ export default async function AuthenticationPage() {
             height={60}
             priority
           />
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Bem-vindo de volta
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Bem-vindo de volta</h1>
         </div>
 
         <Tabs defaultValue="login" className="w-full">

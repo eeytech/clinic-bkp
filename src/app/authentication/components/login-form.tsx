@@ -51,7 +51,7 @@ const LoginForm = () => {
         body: JSON.stringify({
           email: values.email,
           password: values.password,
-          applicationSlug: "bye-carie",
+          applicationSlug: process.env.NEXT_PUBLIC_APP_SLUG || "bye-carie",
         }),
       });
 
@@ -62,7 +62,7 @@ const LoginForm = () => {
       }
 
       toast.success("Login efetuado com sucesso!");
-      router.push("/dashboard");
+      router.push("/clinic/select");
       router.refresh(); // Garante que o middleware detete o novo cookie
     } catch (error: any) {
       toast.error(error.message || "Erro ao conectar com o servidor.");

@@ -2,16 +2,26 @@ import jwt from "jsonwebtoken";
 
 const ACCESS_SECRET = process.env.JWT_SECRET!;
 
+export interface SessionCompany {
+  id: string;
+  name: string;
+}
+
 export interface JWTPayload {
-  sub: string; // ID do Usuário no banco do Admin
-  email: string; // E-mail para Bypass de Super Admin
-  application: string; // Slug da aplicação (ex: bye-carie)
-  modules: Record<string, string[]>; // Permissões: { "financeiro": ["READ"] }
+  sub: string;
+  email: string;
+  name?: string;
+  application: string;
+  applicationId?: string;
+  modules: Record<string, string[]>;
+  isApplicationAdmin?: boolean;
+  companyIds?: string[];
+  companies?: SessionCompany[];
+  activeCompanyId?: string;
 }
 
 export function verifyAccessToken(token: string): JWTPayload | null {
   try {
-    // Valida se o token foi assinado pela nossa secret central
     return jwt.verify(token, ACCESS_SECRET) as JWTPayload;
   } catch {
     return null;

@@ -1,5 +1,9 @@
-import { toNextJsHandler } from "better-auth/next-js";
+import { NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth"; // path to your auth file
+export async function GET() {
+  return NextResponse.json({ error: "Endpoint desativado" }, { status: 404 });
+}
 
-export const { POST, GET } = toNextJsHandler(auth);
+export async function POST() {
+  return NextResponse.json({ error: "Endpoint desativado" }, { status: 404 });
+}

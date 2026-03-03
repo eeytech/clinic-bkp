@@ -1,14 +1,30 @@
-import { requireModulePermission } from "@/lib/permissions/mbac";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { redirect } from "next/navigation";
+
 import { AppSidebar } from "./_components/app-sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { auth } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions/mbac";
 
 export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Verifica se o utilizador tem permissão mínima para o dashboard do SaaS
   await requireModulePermission("dashboard", "READ");
+
+  const session = await auth.api.getSession();
+
+  if (!session) {
+    redirect("/authentication");
+  }
+
+  if (!session.user.clinics?.length) {
+    redirect("/clinic/unavailable");
+  }
+
+  if (!session.user.clinic?.id) {
+    redirect("/clinic/select");
+  }
 
   return (
     <SidebarProvider>

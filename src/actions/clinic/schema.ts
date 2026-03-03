@@ -15,6 +15,7 @@ const allClinicPaymentMethods = clinicPaymentMethodsEnum.enumValues as [
 ];
 
 export const upsertClinicSchema = z.object({
+  clinicId: z.string().uuid("Clinica invalida."),
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1, "Nome da clínica é obrigatório."),
   cnpj: z

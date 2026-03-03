@@ -1,89 +1,145 @@
-// src/actions/support-tickets/index.ts
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 
-import { db } from "@/db";
-import { supportTicketsTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { sendEmail } from "@/lib/email"; // Importar sendEmail
 import { actionClient } from "@/lib/next-safe-action";
 
 import { createSupportTicketSchema } from "./schema";
 
-// Action para criar um novo chamado
+type AdminTicketStatus =
+  | "aguardando"
+  | "em_atendimento"
+  | "concluido"
+  | "pending"
+  | "in_progress"
+  | "resolved";
+
+export type SupportTicketListItem = {
+  id: string;
+  subject: string;
+  description: string;
+  status: AdminTicketStatus;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    name: string | null;
+    email: string | null;
+  } | null;
+};
+
+type AdminTicketsApiResponseItem = {
+  id: string;
+  title?: string | null;
+  subject?: string | null;
+  description?: string | null;
+  status?: AdminTicketStatus | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+  } | null;
+};
+
+const getAdminConnectionConfig = () => {
+  const adminApiUrl = process.env.NEXT_PUBLIC_ADMIN_API_URL;
+  const internalKey = process.env.INTERNAL_API_KEY;
+
+  if (!adminApiUrl) {
+    throw new Error("NEXT_PUBLIC_ADMIN_API_URL nao configurada.");
+  }
+
+  if (!internalKey) {
+    throw new Error("INTERNAL_API_KEY nao configurada.");
+  }
+
+  return { adminApiUrl, internalKey };
+};
+
 export const createSupportTicket = actionClient
   .schema(createSupportTicketSchema)
   .action(async ({ parsedInput }) => {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await auth.api.getSession();
 
     if (!session?.user || !session.user.clinic?.id) {
-      throw new Error("Não autorizado ou clínica não encontrada.");
+      throw new Error("Nao autorizado ou clinica nao encontrada.");
     }
 
-    const clinicId = session.user.clinic.id;
-    const userId = session.user.id;
+    const { adminApiUrl, internalKey } = getAdminConnectionConfig();
 
-    const [newTicket] = await db
-      .insert(supportTicketsTable)
-      .values({
-        clinicId,
-        userId,
-        subject: parsedInput.subject,
+    const response = await fetch(`${adminApiUrl}/api/internal/tickets`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-key": internalKey,
+      },
+      body: JSON.stringify({
+        applicationId: session.user.applicationId,
+        companyId: session.user.clinic.id,
+        userId: session.user.id,
+        title: parsedInput.subject,
         description: parsedInput.description,
-        status: "pending", // Status inicial
-      })
-      .returning();
+      }),
+      cache: "no-store",
+    });
 
-    // Enviar notificação por email
-    if (process.env.SUPPORT_EMAIL && newTicket) {
-      const emailSubject = `Novo Chamado #${newTicket.id}: ${newTicket.subject}`;
-      const emailText = `Novo chamado aberto por ${session.user.email} (Clínica ID: ${clinicId}).\n\nAssunto: ${newTicket.subject}\n\nDescrição:\n${newTicket.description}`;
-      const emailHtml = `
-        <p>Novo chamado aberto por <strong>${session.user.email}</strong> (Clínica ID: ${clinicId}).</p>
-        <p><strong>Assunto:</strong> ${newTicket.subject}</p>
-        <p><strong>Descrição:</strong></p>
-        <p>${newTicket.description.replace(/\n/g, "<br>")}</p>
-        <hr>
-        <p>ID do Chamado: ${newTicket.id}</p>
-      `;
+    const data = await response.json().catch(() => ({}));
 
-      await sendEmail({
-        to: process.env.SUPPORT_EMAIL,
-        subject: emailSubject,
-        text: emailText,
-        html: emailHtml,
-      });
+    if (!response.ok) {
+      throw new Error(data?.error || "Erro ao abrir chamado no sistema central.");
     }
 
-    revalidatePath("/support-tickets"); // Revalida a página de chamados
-    return { success: true, ticketId: newTicket.id };
+    revalidatePath("/support-tickets");
+    return { success: true, ticketId: String(data.ticketId ?? "") };
   });
 
-// Action para buscar os chamados da clínica
 export const getSupportTickets = actionClient.action(async () => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession();
 
   if (!session?.user || !session.user.clinic?.id) {
-    throw new Error("Não autorizado ou clínica não encontrada.");
+    throw new Error("Nao autorizado ou clinica nao encontrada.");
   }
 
-  const tickets = await db.query.supportTicketsTable.findMany({
-    where: eq(supportTicketsTable.clinicId, session.user.clinic.id),
-    orderBy: [desc(supportTicketsTable.createdAt)],
-    with: {
-      user: {
-        // Inclui dados do usuário que abriu
-        columns: { name: true, email: true },
-      },
+  const { adminApiUrl } = getAdminConnectionConfig();
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+
+  if (!token) {
+    throw new Error("Sessao invalida.");
+  }
+
+  const response = await fetch(`${adminApiUrl}/api/tickets`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
     },
+    cache: "no-store",
   });
 
-  return tickets;
+  const data = await response.json().catch(() => []);
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Erro ao buscar chamados no sistema central.");
+  }
+
+  const tickets = Array.isArray(data)
+    ? (data as AdminTicketsApiResponseItem[])
+    : [];
+
+  return tickets.map((ticket) => ({
+    id: String(ticket.id),
+    subject: String(ticket.title ?? ticket.subject ?? ""),
+    description: String(ticket.description ?? ""),
+    status: (ticket.status ?? "aguardando") as AdminTicketStatus,
+    createdAt: String(ticket.createdAt ?? new Date().toISOString()),
+    updatedAt: String(ticket.updatedAt ?? ticket.createdAt ?? new Date().toISOString()),
+    user: ticket.user
+      ? {
+          name: ticket.user.name ?? null,
+          email: ticket.user.email ?? null,
+        }
+      : null,
+  })) as SupportTicketListItem[];
 });

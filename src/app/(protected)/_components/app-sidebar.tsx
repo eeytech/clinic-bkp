@@ -1,20 +1,22 @@
 "use client";
 
+import * as React from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   CalendarDays,
-  DollarSign,  LayoutDashboard,
+  DollarSign,
+  LayoutDashboard,
   LifeBuoy,
+  Loader2,
   LogOut,
+  Repeat,
   Settings,
   Stethoscope,
   Users,
   UsersRound,
-  Loader2,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import * as React from "react";
 import { toast } from "sonner";
 
 import { getClinic } from "@/actions/clinic/get-clinic";
@@ -45,9 +47,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-
-// Importa o cliente mockado que criamos anteriormente
 import { authClient } from "@/lib/auth-client";
+
 import UpsertClinicForm, {
   ClinicData,
 } from "../clinic/_components/upsert-clinic-form";
@@ -55,22 +56,18 @@ import UpsertClinicForm, {
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Agendamentos", url: "/appointments", icon: CalendarDays },
-  { title: "Médicos", url: "/doctors", icon: Stethoscope },
+  { title: "Medicos", url: "/doctors", icon: Stethoscope },
   { title: "Pacientes", url: "/patients", icon: UsersRound },
-  { title: "Funcionários", url: "/employees", icon: Users },
+  { title: "Funcionarios", url: "/employees", icon: Users },
   { title: "Financeiro", url: "/financials", icon: DollarSign },
 ];
 
 const otherItems = [
-    { title: "Abertura de Chamados", url: "/support-tickets", icon: LifeBuoy },
+  { title: "Abertura de Chamados", url: "/support-tickets", icon: LifeBuoy },
 ];
 
 export function AppSidebar() {
-  const router = useRouter();
   const pathname = usePathname();
-
-  // No novo sistema, o hook useSession retorna dados básicos ou nulos
-  // O estado real da sessão é controlado pelo cookie JWT no servidor
   const session = authClient.useSession();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -79,29 +76,29 @@ export function AppSidebar() {
 
   const handleSignOut = async () => {
     try {
-      // Chama a função de logout que limpa o cookie auth_token
       await authClient.signOut();
       toast.success("Saindo do sistema...");
-    } catch (error) {
+    } catch {
       toast.error("Erro ao sair.");
     }
   };
 
   const handleOpenEditDialog = async (open: boolean) => {
     setIsEditDialogOpen(open);
+
     if (open && !clinicData) {
       setIsLoadingClinic(true);
+
       try {
         const result = await getClinic();
-        // Verifica se o resultado é válido e contém dados
         if (result && "data" in result && result.data) {
           setClinicData(result.data as ClinicData);
         } else {
-          toast.error("Erro ao carregar dados da clínica.");
+          toast.error("Erro ao carregar dados da clinica.");
           setIsEditDialogOpen(false);
         }
-      } catch (error) {
-        toast.error("Erro ao carregar dados da clínica.");
+      } catch {
+        toast.error("Erro ao carregar dados da clinica.");
         setIsEditDialogOpen(false);
       } finally {
         setIsLoadingClinic(false);
@@ -109,9 +106,8 @@ export function AppSidebar() {
     }
   };
 
-  // Helper para exibir nome amigável enquanto o perfil não é carregado via API dedicada
-  const userDisplayEmail = session.data?.user?.email || "Usuário Logado";
-  const clinicDisplayName = clinicData?.name || "Minha Clínica";
+  const userDisplayEmail = session.data?.user?.email || "Usuario logado";
+  const clinicDisplayName = clinicData?.name || "Minha clinica";
 
   return (
     <Sidebar>
@@ -123,6 +119,7 @@ export function AppSidebar() {
           height={125}
         />
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
@@ -141,6 +138,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel>Outros</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -159,35 +157,38 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
         <Dialog open={isEditDialogOpen} onOpenChange={handleOpenEditDialog}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg" className="w-full">
                 <Avatar>
-                  <AvatarImage
-                    src={clinicData?.logoUrl || ""}
-                    alt={clinicDisplayName}
-                  />
+                  <AvatarImage src={clinicData?.logoUrl || ""} alt={clinicDisplayName} />
                   <AvatarFallback>{clinicDisplayName[0] ?? "C"}</AvatarFallback>
                 </Avatar>
                 <div className="overflow-hidden text-left">
-                  <p className="truncate text-sm font-medium">
-                    {clinicDisplayName}
-                  </p>
-                  <p className="text-muted-foreground truncate text-xs">
-                    {userDisplayEmail}
-                  </p>
+                  <p className="truncate text-sm font-medium">{clinicDisplayName}</p>
+                  <p className="text-muted-foreground truncate text-xs">{userDisplayEmail}</p>
                 </div>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent side="top" className="w-56">
               <DialogTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
                   <Settings className="mr-2 size-4" />
-                  Editar Clínica
+                  Editar Clinica
                 </DropdownMenuItem>
               </DialogTrigger>
+
+              <DropdownMenuItem asChild>
+                <Link href="/clinic/select">
+                  <Repeat className="mr-2 size-4" />
+                  Alterar Clinica
+                </Link>
+              </DropdownMenuItem>
+
               <DropdownMenuItem
                 onClick={handleSignOut}
                 className="text-red-600 focus:text-red-600"
@@ -197,17 +198,17 @@ export function AppSidebar() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
           <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
               <DialogTitle>
-                {clinicData?.name
-                  ? `Editar ${clinicData.name}`
-                  : "Configurações da Clínica"}
+                {clinicData?.name ? `Editar ${clinicData.name}` : "Configuracoes da Clinica"}
               </DialogTitle>
               <DialogDescription>
-                Atualize as informações da sua clínica no sistema.
+                Atualize as informacoes da sua clinica no sistema.
               </DialogDescription>
             </DialogHeader>
+
             {isLoadingClinic ? (
               <div className="flex h-40 items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -219,7 +220,7 @@ export function AppSidebar() {
               />
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
-                Inicie o preenchimento dos dados da sua clínica.
+                Inicie o preenchimento dos dados da sua clinica.
               </p>
             )}
           </DialogContent>
@@ -228,4 +229,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-

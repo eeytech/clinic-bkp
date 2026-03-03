@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -12,7 +11,7 @@ import {
   patientsTable,
   toothFaceEnum,
 } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { getAuthorizedClinicContextForApi } from "@/lib/auth/clinic-context";
 
 const zOdontogramMark = z.object({
   id: z.string().uuid().optional(),
@@ -27,17 +26,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id: patientId } = await params;
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user || !session.user.clinic?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const context = await getAuthorizedClinicContextForApi();
+    if (!context.ok) {
+      return NextResponse.json({ error: context.error }, { status: context.status });
     }
 
+    const { clinicId } = context;
+    const { id: patientId } = await params;
+
     const patient = await db.query.patientsTable.findFirst({
-      where: and(
-        eq(patientsTable.id, patientId),
-        eq(patientsTable.clinicId, session.user.clinic.id),
-      ),
+      where: and(eq(patientsTable.id, patientId), eq(patientsTable.clinicId, clinicId)),
     });
 
     if (!patient) {
@@ -61,10 +59,7 @@ export async function GET(
     return NextResponse.json(odontograms);
   } catch (error) {
     console.error("GET Odontogram Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -73,12 +68,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id: patientId } = await params;
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user || !session.user.clinic?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const context = await getAuthorizedClinicContextForApi();
+    if (!context.ok) {
+      return NextResponse.json({ error: context.error }, { status: context.status });
     }
 
+    const { clinicId } = context;
+    const { id: patientId } = await params;
     const body = await request.json();
 
     const validationSchema = z.object({
@@ -98,10 +94,7 @@ export async function POST(
     const { marks, doctorId, date } = result.data;
 
     const patient = await db.query.patientsTable.findFirst({
-      where: and(
-        eq(patientsTable.id, patientId),
-        eq(patientsTable.clinicId, session.user.clinic.id),
-      ),
+      where: and(eq(patientsTable.id, patientId), eq(patientsTable.clinicId, clinicId)),
     });
 
     if (!patient) {
@@ -111,12 +104,13 @@ export async function POST(
     const [newOdontogram] = await db
       .insert(odontogramsTable)
       .values({
-        patientId: patientId,
-        clinicId: session.user.clinic.id,
-        doctorId: doctorId,
-        date: date,
+        patientId,
+        clinicId,
+        doctorId,
+        date,
       })
       .returning({ id: odontogramsTable.id });
+
     const newOdontogramId = newOdontogram.id;
 
     if (marks.length > 0) {
@@ -124,20 +118,15 @@ export async function POST(
         ...mark,
         odontogramId: newOdontogramId,
       }));
+
       await db.insert(odontogramMarksTable).values(newMarks);
     }
 
     revalidatePath(`/patients/${patientId}/odontogram`);
 
-    return NextResponse.json({
-      success: true,
-      odontogramId: newOdontogramId,
-    });
+    return NextResponse.json({ success: true, odontogramId: newOdontogramId });
   } catch (error) {
     console.error("POST Odontogram Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

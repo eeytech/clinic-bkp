@@ -1,10 +1,10 @@
 // src/actions/clinic/manage-users.ts
 "use server";
 
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { usersTable, usersToClinicsTable } from "@/db/schema";
+import { userClinicsTable, usersTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { actionClient } from "@/lib/next-safe-action";
 import { addUserToClinicSchema } from "./schema";
@@ -51,7 +51,7 @@ export const addUserToClinic = actionClient
 
     // 3. Vincular o usuário à clínica
     await db
-      .insert(usersToClinicsTable)
+      .insert(userClinicsTable)
       .values({
         userId: user.id,
         clinicId: session.user.clinic.id,

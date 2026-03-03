@@ -1,8 +1,7 @@
 // src/actions/clinic/get-clinic.ts - CORRIGIDO
 "use server";
 
-import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
+import { and, eq } from "drizzle-orm";
 
 import { ClinicPaymentMethod } from "@/app/(protected)/clinic/_constants";
 import { db } from "@/db";
@@ -11,16 +10,17 @@ import { auth } from "@/lib/auth";
 import { actionClient } from "@/lib/next-safe-action";
 
 export const getClinic = actionClient.action(async () => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession();
 
   if (!session?.user || !session.user.clinic?.id) {
     throw new Error("Não autorizado ou clínica não encontrada");
   }
 
   const clinic = await db.query.clinicsTable.findFirst({
-    where: eq(clinicsTable.id, session.user.clinic.id),
+    where: and(
+      eq(clinicsTable.id, session.user.clinic.id),
+      eq(clinicsTable.applicationId, session.user.applicationId),
+    ),
   });
 
   if (!clinic) {

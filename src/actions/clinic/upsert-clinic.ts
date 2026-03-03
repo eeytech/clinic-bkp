@@ -1,16 +1,30 @@
-// src/actions/clinic/upsert-clinic.ts
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { clinicsTable, usersTable, usersToClinicsTable } from "@/db/schema";
+import { clinicsTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { actionClient } from "@/lib/next-safe-action";
+
 import { upsertClinicSchema } from "./schema";
+
+const ADMIN_ACTIONS = new Set(["FULL", "ADMIN", "WRITE"]);
+
+const hasClinicAdminPermission = (session: Awaited<ReturnType<typeof auth.api.getSession>>) => {
+  if (!session?.user) return false;
+  if (session.user.isApplicationAdmin) return true;
+
+  const permissionEntries = Object.entries(session.user.permissions ?? {});
+  return permissionEntries.some(([moduleSlug, actions]) => {
+    const normalizedModule = moduleSlug.toLowerCase();
+    const isClinicModule = normalizedModule.includes("clinic") || normalizedModule.includes("clinica");
+    if (!isClinicModule) return false;
+
+    return (actions ?? []).some((action) => ADMIN_ACTIONS.has(action));
+  });
+};
 
 export const upsertClinic = actionClient
   .schema(upsertClinicSchema)
@@ -18,55 +32,43 @@ export const upsertClinic = actionClient
     const session = await auth.api.getSession();
 
     if (!session?.user) {
-      throw new Error("Não autorizado.");
+      throw new Error("Nao autorizado.");
     }
 
-    // --- VALIDAÇÃO DE PERMISSÃO VIA EEYTECH-ADMIN ---
-    // Verificamos se no módulo 'CLINIC' (ou o slug que você definiu) o usuário tem 'FULL' ou 'ADMIN'
-    const clinicPermissions = session.user.permissions["CLINIC"] || [];
-    const isAdmin =
-      clinicPermissions.includes("FULL") || clinicPermissions.includes("ADMIN");
-
-    if (!isAdmin) {
-      throw new Error(
-        "Apenas administradores podem gerenciar os dados da clínica.",
-      );
+    if (!hasClinicAdminPermission(session)) {
+      throw new Error("Apenas administradores podem editar clinicas.");
     }
 
-    const { id, ...clinicData } = parsedInput;
+    const { clinicId, id, ...clinicData } = parsedInput;
 
-    if (id) {
-      // Edição: Garante que o admin está editando a clínica à qual ele pertence
-      if (id !== session.user.clinic?.id) {
-        throw new Error("Você não tem permissão para editar esta clínica.");
-      }
-
-      await db
-        .update(clinicsTable)
-        .set(clinicData)
-        .where(eq(clinicsTable.id, id));
-    } else {
-      // Criação: Sincroniza o usuário e cria o vínculo inicial
-      await db
-        .insert(usersTable)
-        .values({
-          id: session.user.id,
-          name: session.user.name,
-          email: session.user.email,
-          emailVerified: true,
-        })
-        .onConflictDoNothing();
-
-      const [newClinic] = await db
-        .insert(clinicsTable)
-        .values(clinicData)
-        .returning();
-
-      await db.insert(usersToClinicsTable).values({
-        userId: session.user.id,
-        clinicId: newClinic.id,
-      });
+    const targetClinicId = id ?? clinicId;
+    if (id && id !== clinicId) {
+      throw new Error("Clinica invalida para atualizacao.");
     }
+
+    const allowedClinicIds = new Set((session.user.clinics ?? []).map((clinic) => clinic.id));
+    if (!session.user.isApplicationAdmin && !allowedClinicIds.has(targetClinicId)) {
+      throw new Error("Voce nao possui acesso a esta clinica.");
+    }
+
+    const existingClinic = await db.query.clinicsTable.findFirst({
+      where: and(
+        eq(clinicsTable.id, targetClinicId),
+        eq(clinicsTable.applicationId, session.user.applicationId),
+      ),
+    });
+
+    if (!existingClinic) {
+      throw new Error("Clinica nao encontrada no sistema.");
+    }
+
+    await db
+      .update(clinicsTable)
+      .set({
+        ...clinicData,
+        paymentMethods: clinicData.paymentMethods as typeof clinicsTable.$inferInsert.paymentMethods,
+      })
+      .where(eq(clinicsTable.id, targetClinicId));
 
     revalidatePath("/", "layout");
     return { success: true };

@@ -1,36 +1,34 @@
-// src/app/(protected)/support-tickets/_components/table-columns.tsx
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+import { SupportTicketListItem } from "@/actions/support-tickets";
 import { Badge } from "@/components/ui/badge";
-// Importa o helper para cabeçalhos ordenáveis
 import { DataTableColumnHeader } from "@/components/ui/data-table";
-import { supportTicketsTable, usersTable } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
-export type SupportTicketWithUser = typeof supportTicketsTable.$inferSelect & {
-  user: Pick<typeof usersTable.$inferSelect, "name" | "email"> | null;
-};
+export type SupportTicketWithUser = SupportTicketListItem;
 
-// Helper para mapear status (sem alterações)
 const getStatusProps = (status: SupportTicketWithUser["status"]) => {
   switch (status) {
     case "pending":
+    case "aguardando":
       return {
         label: "Pendente",
         color: "bg-yellow-100 text-yellow-800 border-yellow-300",
       };
     case "in_progress":
+    case "em_atendimento":
       return {
         label: "Em Andamento",
         color: "bg-blue-100 text-blue-800 border-blue-300",
       };
     case "resolved":
+    case "concluido":
       return {
-        label: "Resolvido",
+        label: "Concluido",
         color: "bg-green-100 text-green-800 border-green-300",
       };
     default:
@@ -41,7 +39,6 @@ const getStatusProps = (status: SupportTicketWithUser["status"]) => {
   }
 };
 
-// Definição das colunas com cabeçalhos ordenáveis
 export const columns: ColumnDef<SupportTicketWithUser>[] = [
   {
     accessorKey: "id",
@@ -59,17 +56,13 @@ export const columns: ColumnDef<SupportTicketWithUser>[] = [
   },
   {
     accessorKey: "description",
-    header: "Descrição", // Geralmente não ordenável
-    cell: ({ row }) => (
-      <p className="max-w-xs truncate">{row.original.description}</p>
-    ),
+    header: "Descricao",
+    cell: ({ row }) => <p className="max-w-xs truncate">{row.original.description}</p>,
     enableSorting: false,
   },
   {
     accessorKey: "status",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
     cell: ({ row }) => {
       const { label, color } = getStatusProps(row.original.status);
       return (
@@ -85,8 +78,7 @@ export const columns: ColumnDef<SupportTicketWithUser>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Aberto por" />
     ),
-    cell: ({ row }) =>
-      row.original.user?.name ?? row.original.user?.email ?? "-",
+    cell: ({ row }) => row.original.user?.name ?? row.original.user?.email ?? "-",
     enableSorting: true,
   },
   {
@@ -103,25 +95,12 @@ export const columns: ColumnDef<SupportTicketWithUser>[] = [
   {
     accessorKey: "updatedAt",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Última Atualização" />
+      <DataTableColumnHeader column={column} title="Ultima Atualizacao" />
     ),
-    cell: ({ row }) => {
-      const updatedAt = row.original.updatedAt;
-      return updatedAt
-        ? format(new Date(updatedAt), "dd/MM/yyyy HH:mm", {
-            locale: ptBR,
-          })
-        : "-";
-    },
+    cell: ({ row }) =>
+      format(new Date(row.original.updatedAt), "dd/MM/yyyy HH:mm", {
+        locale: ptBR,
+      }),
     enableSorting: true,
   },
-  // { // Coluna de Ações (pode ser adicionada futuramente)
-  //   id: "actions",
-  //   header: "Ações",
-  //   cell: ({ row }) => {
-  //     // Aqui você pode adicionar botões para ver detalhes, mudar status, etc.
-  //     return <div>...</div>;
-  //   },
-  //   enableSorting: false,
-  // },
 ];

@@ -7,11 +7,11 @@ import {
   jsonb,
   pgEnum,
   pgTable,
-  primaryKey, // Added for usersToClinicsTable
   serial,
   text,
   time,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -284,6 +284,7 @@ export const verificationsTable = pgTable("verifications", {
 
 export const clinicsTable = pgTable("clinics", {
   id: uuid("id").defaultRandom().primaryKey(),
+  applicationId: text("application_id"),
   name: text("name").notNull(),
   cnpj: text("cnpj"),
   stateBusinessRegistration: text("state_business_registration"),
@@ -311,10 +312,10 @@ export const clinicsTable = pgTable("clinics", {
     .$onUpdate(() => new Date()),
 });
 
-// Added composite primary key
-export const usersToClinicsTable = pgTable(
-  "users_to_clinics",
+export const userClinicsTable = pgTable(
+  "user_clinics",
   {
+    id: uuid("id").defaultRandom().primaryKey(),
     userId: text("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
@@ -324,12 +325,12 @@ export const usersToClinicsTable = pgTable(
     createdAt: timestamp("created_at")
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
-    updatedAt: timestamp("updated_at")
-      .default(sql`CURRENT_TIMESTAMP`)
-      .$onUpdate(() => new Date()),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.clinicId] }),
+    userClinicUnique: uniqueIndex("user_clinics_user_id_clinic_id_idx").on(
+      table.userId,
+      table.clinicId,
+    ),
   }),
 );
 
@@ -696,21 +697,21 @@ export const certificatesTable = pgTable("certificates", {
 // --- RELATIONS ---
 
 export const usersTableRelations = relations(usersTable, ({ many }) => ({
-  usersToClinics: many(usersToClinicsTable),
+  userClinics: many(userClinicsTable),
   anamneses: many(anamnesesTable),
   createdClinicFinances: many(clinicFinancesTable, { relationName: "creator" }),
   supportTickets: many(supportTicketsTable), // Adicionado
 }));
 
-export const usersToClinicsTableRelations = relations(
-  usersToClinicsTable,
+export const userClinicsTableRelations = relations(
+  userClinicsTable,
   ({ one }) => ({
     user: one(usersTable, {
-      fields: [usersToClinicsTable.userId],
+      fields: [userClinicsTable.userId],
       references: [usersTable.id],
     }),
     clinic: one(clinicsTable, {
-      fields: [usersToClinicsTable.clinicId],
+      fields: [userClinicsTable.clinicId],
       references: [clinicsTable.id],
     }),
   }),
@@ -720,7 +721,7 @@ export const clinicsTableRelations = relations(clinicsTable, ({ many }) => ({
   doctors: many(doctorsTable),
   patients: many(patientsTable),
   appointments: many(appointmentsTable),
-  usersToClinics: many(usersToClinicsTable),
+  userClinics: many(userClinicsTable),
   odontograms: many(odontogramsTable),
   clinicFinances: many(clinicFinancesTable),
   employees: many(employeesTable),
