@@ -283,7 +283,7 @@ export const verificationsTable = pgTable("verifications", {
 });
 
 export const clinicsTable = pgTable("clinics", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   applicationId: text("application_id"),
   name: text("name").notNull(),
   cnpj: text("cnpj"),
@@ -944,3 +944,4 @@ export const certificatesTableRelations = relations(
     }),
   }),
 );
+

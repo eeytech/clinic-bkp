@@ -18,7 +18,11 @@ export default async function ProtectedLayout({
     redirect("/authentication");
   }
 
-  if (!session.user.clinics?.length) {
+  const hasAnyLocalClinic = (session.user.clinics?.length ?? 0) > 0;
+  const canBootstrapClinic =
+    session.user.isApplicationAdmin && Boolean(session.user.activeClinicId);
+
+  if (!hasAnyLocalClinic && !canBootstrapClinic) {
     redirect("/clinic/unavailable");
   }
 

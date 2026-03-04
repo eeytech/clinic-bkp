@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { clinicsTable } from "@/db/schema";
+import { clinicsTable, userClinicsTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { actionClient } from "@/lib/next-safe-action";
 
@@ -47,6 +47,9 @@ export const upsertClinic = actionClient
     }
 
     const allowedClinicIds = new Set((session.user.clinics ?? []).map((clinic) => clinic.id));
+    const tokenCompanyIds = new Set(
+      (session.user.companies ?? []).map((company) => company.id),
+    );
     if (!session.user.isApplicationAdmin && !allowedClinicIds.has(targetClinicId)) {
       throw new Error("Voce nao possui acesso a esta clinica.");
     }
@@ -59,17 +62,38 @@ export const upsertClinic = actionClient
     });
 
     if (!existingClinic) {
-      throw new Error("Clinica nao encontrada no sistema.");
-    }
+      if (!session.user.isApplicationAdmin) {
+        throw new Error("Clinica nao encontrada no sistema.");
+      }
+      if (!tokenCompanyIds.has(targetClinicId)) {
+        throw new Error("Clinica nao encontrada no contexto da sua sessao.");
+      }
 
-    await db
-      .update(clinicsTable)
-      .set({
+      await db.insert(clinicsTable).values({
+        id: targetClinicId,
+        applicationId: session.user.applicationId,
         ...clinicData,
         paymentMethods: clinicData.paymentMethods as typeof clinicsTable.$inferInsert.paymentMethods,
-      })
-      .where(eq(clinicsTable.id, targetClinicId));
+      });
+
+      await db
+        .insert(userClinicsTable)
+        .values({
+          userId: session.user.id,
+          clinicId: targetClinicId,
+        })
+        .onConflictDoNothing();
+    } else {
+      await db
+        .update(clinicsTable)
+        .set({
+          ...clinicData,
+          paymentMethods: clinicData.paymentMethods as typeof clinicsTable.$inferInsert.paymentMethods,
+        })
+        .where(eq(clinicsTable.id, targetClinicId));
+    }
 
     revalidatePath("/", "layout");
+    revalidatePath("/clinic/select");
     return { success: true };
   });

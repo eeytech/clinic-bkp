@@ -2,26 +2,35 @@
 import "dotenv/config";
 
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg"; // Import Pool
+import { Pool } from "pg";
 
 import * as schema from "./schema";
 
-// Check if DATABASE_URL is defined
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set.");
 }
 
-// Create a connection pool
+const databaseUrl = process.env.DATABASE_URL;
+
+try {
+  const parsedDbUrl = new URL(databaseUrl);
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(parsedDbUrl.hostname)) {
+    console.warn(
+      "[DB] DATABASE_URL esta usando IP direto. Em ambiente Docker/Coolify prefira nome de servico (ex: postgres:5432).",
+    );
+  }
+} catch (error) {
+  console.warn("[DB] DATABASE_URL invalida.", error);
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // Add SSL configuration if needed for production environments
-  // ssl: {
-  //   rejectUnauthorized: false, // Example for environments like Heroku, adjust as needed
-  // },
+  connectionString: databaseUrl,
+});
+
+pool.on("error", (error) => {
+  console.error("[DB] Erro inesperado no pool PostgreSQL:", error);
 });
 
 export const db = drizzle(pool, {
-  // Use the pool
   schema,
-  // logger: true // Enable logger for debugging queries if needed
 });

@@ -23,17 +23,21 @@ export default async function ClinicUnavailablePage() {
     redirect("/clinic/select");
   }
 
+  if (session.user.isApplicationAdmin && session.user.activeClinicId) {
+    redirect("/clinic/select");
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-lg">
         <CardHeader>
           <CardTitle>Acesso bloqueado</CardTitle>
           <CardDescription>
-            Sua conta nao esta vinculada a nenhuma clinica.
+            Clinica pendente de configuracao.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-slate-600">
-          O vinculo deve ser realizado no sistema administrativo da Eeytech.
+          Aguarde um administrador concluir o cadastro da clinica no sistema.
         </CardContent>
         <CardFooter>
           <Button asChild className="w-full">
