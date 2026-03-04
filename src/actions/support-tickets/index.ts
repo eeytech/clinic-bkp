@@ -1,7 +1,7 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 import { auth } from "@/lib/auth";
 import { actionClient } from "@/lib/next-safe-action";
@@ -62,9 +62,16 @@ export const createSupportTicket = actionClient
   .schema(createSupportTicketSchema)
   .action(async ({ parsedInput }) => {
     const session = await auth.api.getSession();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
 
-    if (!session?.user || !session.user.clinic?.id) {
+    const clinicId = session?.user?.clinic?.id ?? session?.user?.activeCompanyId;
+
+    if (!session?.user || !clinicId) {
       throw new Error("Nao autorizado ou clinica nao encontrada.");
+    }
+    if (!token) {
+      throw new Error("Sessao invalida.");
     }
 
     const { adminApiUrl, internalKey } = getAdminConnectionConfig();
@@ -74,10 +81,11 @@ export const createSupportTicket = actionClient
       headers: {
         "Content-Type": "application/json",
         "x-internal-key": internalKey,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         applicationId: session.user.applicationId,
-        companyId: session.user.clinic.id,
+        companyId: clinicId,
         userId: session.user.id,
         title: parsedInput.subject,
         description: parsedInput.description,
