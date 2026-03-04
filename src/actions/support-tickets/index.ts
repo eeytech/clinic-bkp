@@ -63,6 +63,12 @@ const getAdminConnectionConfig = () => {
   const adminApiUrl = process.env.NEXT_PUBLIC_ADMIN_API_URL;
   const internalKey = process.env.INTERNAL_API_KEY;
 
+  console.log("[DEBUG:Config] Verificando Env Vars:", {
+    url: adminApiUrl || "AUSENTE",
+    keyPresent: !!internalKey,
+    keyPrefix: internalKey ? `${internalKey.slice(0, 5)}...` : "N/A",
+  });
+
   if (!adminApiUrl) {
     throw new Error("NEXT_PUBLIC_ADMIN_API_URL nao configurada.");
   }
@@ -107,14 +113,19 @@ export const createSupportTicket = actionClient
     });
 
     if (!session?.user || !clinicId) {
-      console.error("[support-tickets:create] Falha de autorizacao/localizacao de clinica", {
-        hasSessionUser: Boolean(session?.user),
-        clinicId: clinicId ?? null,
-      });
+      console.error(
+        "[support-tickets:create] Falha de autorizacao/localizacao de clinica",
+        {
+          hasSessionUser: Boolean(session?.user),
+          clinicId: clinicId ?? null,
+        },
+      );
       throw new Error("Nao autorizado ou clinica nao encontrada.");
     }
     if (!token) {
-      console.error("[support-tickets:create] Falha de sessao: auth_token ausente");
+      console.error(
+        "[support-tickets:create] Falha de sessao: auth_token ausente",
+      );
       throw new Error("Sessao invalida.");
     }
 
@@ -137,7 +148,11 @@ export const createSupportTicket = actionClient
             : payload.description,
       },
     });
-
+    console.log("[DEBUG:Fetch] Headers enviados:", {
+      "x-internal-key": internalKey ? "PRESENTE" : "AUSENTE",
+      Authorization: token ? `Bearer ${token.slice(0, 10)}...` : "AUSENTE",
+      "Content-Type": "application/json",
+    });
     const response = await fetch(`${adminApiUrl}/api/internal/tickets`, {
       method: "POST",
       headers: {
@@ -161,7 +176,9 @@ export const createSupportTicket = actionClient
         status: response.status,
         data,
       });
-      throw new Error(data?.error || "Erro ao abrir chamado no sistema central.");
+      throw new Error(
+        data?.error || "Erro ao abrir chamado no sistema central.",
+      );
     }
 
     revalidatePath("/support-tickets");
@@ -206,7 +223,9 @@ export const getSupportTickets = actionClient.action(async () => {
   const data = await response.json().catch(() => []);
 
   if (!response.ok) {
-    throw new Error(data?.error || "Erro ao buscar chamados no sistema central.");
+    throw new Error(
+      data?.error || "Erro ao buscar chamados no sistema central.",
+    );
   }
 
   const tickets = Array.isArray(data)
@@ -219,7 +238,9 @@ export const getSupportTickets = actionClient.action(async () => {
     description: String(ticket.description ?? ""),
     status: (ticket.status ?? "aguardando") as AdminTicketStatus,
     createdAt: String(ticket.createdAt ?? new Date().toISOString()),
-    updatedAt: String(ticket.updatedAt ?? ticket.createdAt ?? new Date().toISOString()),
+    updatedAt: String(
+      ticket.updatedAt ?? ticket.createdAt ?? new Date().toISOString(),
+    ),
     user: ticket.user
       ? {
           name: ticket.user.name ?? null,
