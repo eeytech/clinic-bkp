@@ -36,6 +36,7 @@ export default function SupportTicketForm() {
 
   const { execute, isExecuting } = useAction(createSupportTicket, {
     onSuccess: () => {
+      console.log("SupportTicketForm Debug - chamado aberto com sucesso");
       toast.success(
         "Chamado aberto com sucesso! Nossa equipe entrará em contato em breve.",
       );
@@ -43,6 +44,11 @@ export default function SupportTicketForm() {
     },
     onError: (error) => {
       console.error("Erro ao abrir chamado:", error);
+      console.error("SupportTicketForm Debug - detalhes do erro", {
+        serverError: error.error.serverError,
+        validationErrors: error.error.validationErrors,
+        hasFetchError: Boolean(error.error.fetchError),
+      });
       toast.error(
         error.error.serverError || "Erro ao abrir chamado. Tente novamente.",
       );
@@ -50,6 +56,14 @@ export default function SupportTicketForm() {
   });
 
   function onSubmit(values: FormValues) {
+    console.log("SupportTicketForm Debug - submit", {
+      subjectLength: values.subject.length,
+      descriptionLength: values.description.length,
+      subjectPreview:
+        values.subject.length > 60
+          ? `${values.subject.slice(0, 60)}...`
+          : values.subject,
+    });
     execute(values);
   }
 

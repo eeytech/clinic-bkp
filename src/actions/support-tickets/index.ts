@@ -77,6 +77,11 @@ const getAdminConnectionConfig = () => {
 export const createSupportTicket = actionClient
   .schema(createSupportTicketSchema)
   .action(async ({ parsedInput }) => {
+    console.log("[support-tickets:create] Iniciando abertura de chamado", {
+      subjectLength: parsedInput.subject.length,
+      descriptionLength: parsedInput.description.length,
+    });
+
     const requestHeaders = await headers();
     const session = await auth.api.getSession({ headers: requestHeaders });
     const cookieStore = await cookies();
@@ -91,14 +96,47 @@ export const createSupportTicket = actionClient
       session?.user?.clinics?.[0]?.id ??
       session?.user?.companies?.[0]?.id;
 
+    console.log("[support-tickets:create] Diagnostico de autenticacao", {
+      hasSessionUser: Boolean(session?.user),
+      userId: session?.user?.id ?? null,
+      applicationId: session?.user?.applicationId ?? null,
+      hasClinicId: Boolean(clinicId),
+      clinicId: clinicId ?? null,
+      hasToken: Boolean(token),
+      tokenPreview: token ? `${token.slice(0, 12)}...` : null,
+    });
+
     if (!session?.user || !clinicId) {
+      console.error("[support-tickets:create] Falha de autorizacao/localizacao de clinica", {
+        hasSessionUser: Boolean(session?.user),
+        clinicId: clinicId ?? null,
+      });
       throw new Error("Nao autorizado ou clinica nao encontrada.");
     }
     if (!token) {
+      console.error("[support-tickets:create] Falha de sessao: auth_token ausente");
       throw new Error("Sessao invalida.");
     }
 
     const { adminApiUrl, internalKey } = getAdminConnectionConfig();
+    const payload = {
+      applicationId: session.user.applicationId,
+      companyId: clinicId,
+      userId: session.user.id,
+      title: parsedInput.subject,
+      description: parsedInput.description,
+    };
+
+    console.log("[support-tickets:create] Enviando para API central", {
+      url: `${adminApiUrl}/api/internal/tickets`,
+      payload: {
+        ...payload,
+        description:
+          payload.description.length > 80
+            ? `${payload.description.slice(0, 80)}...`
+            : payload.description,
+      },
+    });
 
     const response = await fetch(`${adminApiUrl}/api/internal/tickets`, {
       method: "POST",
@@ -107,23 +145,29 @@ export const createSupportTicket = actionClient
         "x-internal-key": internalKey,
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        applicationId: session.user.applicationId,
-        companyId: clinicId,
-        userId: session.user.id,
-        title: parsedInput.subject,
-        description: parsedInput.description,
-      }),
+      body: JSON.stringify(payload),
       cache: "no-store",
     });
 
     const data = await response.json().catch(() => ({}));
+    console.log("[support-tickets:create] Resposta da API central", {
+      status: response.status,
+      ok: response.ok,
+      data,
+    });
 
     if (!response.ok) {
+      console.error("[support-tickets:create] Erro da API central", {
+        status: response.status,
+        data,
+      });
       throw new Error(data?.error || "Erro ao abrir chamado no sistema central.");
     }
 
     revalidatePath("/support-tickets");
+    console.log("[support-tickets:create] Chamado aberto com sucesso", {
+      ticketId: String(data.ticketId ?? ""),
+    });
     return { success: true, ticketId: String(data.ticketId ?? "") };
   });
 
