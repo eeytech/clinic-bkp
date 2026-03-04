@@ -34,15 +34,18 @@ const getSessionLogic = async (input?: unknown) => {
     void input;
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
+    console.log("Auth Debug - Token:", token);
 
     if (!token) return null;
 
     const payload = verifyAccessToken(token);
+    console.log("Auth Debug - Payload:", JSON.stringify(payload, null, 2));
     if (!payload) return null;
 
     const existingUser = await db.query.usersTable.findFirst({
       where: eq(usersTable.email, payload.email),
     });
+    console.log("Auth Debug - existingUser:", existingUser);
 
     if (existingUser && existingUser.id.startsWith("pending_")) {
       await db.transaction(async (tx) => {
@@ -74,8 +77,10 @@ const getSessionLogic = async (input?: unknown) => {
       (company): company is { id: string; name: string } =>
         Boolean(company?.id) && isUuid(company.id) && Boolean(company?.name),
     );
+    console.log("Auth Debug - Companies filtradas:", companies);
 
     const companyIds = companies.map((company) => company.id);
+    console.log("Auth Debug - CompanyIds:", companyIds);
 
     if (companyIds.length > 0) {
       for (const company of companies) {
@@ -122,7 +127,8 @@ const getSessionLogic = async (input?: unknown) => {
     const activeClinicId =
       payload.activeCompanyId && companyIds.includes(payload.activeCompanyId)
         ? payload.activeCompanyId
-        : companyIds[0] ?? null;
+        : (companyIds[0] ?? null);
+    console.log("Auth Debug - activeClinicId:", activeClinicId);
 
     const clinics =
       companyIds.length > 0
@@ -139,7 +145,16 @@ const getSessionLogic = async (input?: unknown) => {
       .map((companyId) => clinicsById.get(companyId) ?? null)
       .filter((clinic): clinic is (typeof clinics)[number] => clinic !== null);
 
-    const activeClinic = activeClinicId ? clinicsById.get(activeClinicId) ?? null : null;
+    const activeClinic = activeClinicId
+      ? (clinicsById.get(activeClinicId) ?? null)
+      : null;
+
+    console.log("Auth Debug - Final User Object:", {
+      id: payload.sub,
+      email: payload.email,
+      activeClinicId,
+      clinicsCount: orderedClinics.length,
+    });
 
     return {
       user: {
