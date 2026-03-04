@@ -10,11 +10,78 @@ const isUuid = (value: string) =>
     value,
   );
 
+type SessionHeaders =
+  | Headers
+  | {
+      get: (name: string) => string | null;
+    }
+  | Record<string, string | undefined>;
+
+type SessionInput =
+  | {
+      headers?: SessionHeaders;
+    }
+  | SessionHeaders;
+
+const parseCookieValue = (cookieHeader: string, key: string): string | null => {
+  const entries = cookieHeader.split(";");
+
+  for (const entry of entries) {
+    const [rawName, ...rest] = entry.trim().split("=");
+    if (rawName !== key) continue;
+    return decodeURIComponent(rest.join("="));
+  }
+
+  return null;
+};
+
+const getHeaderValue = (headersInput: SessionHeaders, name: string): string | null => {
+  if (typeof (headersInput as Headers).get === "function") {
+    return (headersInput as Headers).get(name);
+  }
+
+  if (name in headersInput) {
+    return (headersInput as Record<string, string | undefined>)[name] ?? null;
+  }
+
+  const normalizedEntry = Object.entries(
+    headersInput as Record<string, string | undefined>,
+  ).find(([key]) => key.toLowerCase() === name.toLowerCase());
+
+  return normalizedEntry?.[1] ?? null;
+};
+
+const getTokenFromInput = (input?: unknown): string | null => {
+  if (!input || typeof input !== "object") return null;
+
+  const candidate = input as SessionInput;
+  const headersInput =
+    "headers" in candidate && candidate.headers ? candidate.headers : candidate;
+
+  if (!headersInput || typeof headersInput !== "object") return null;
+
+  const cookieHeader = getHeaderValue(headersInput, "cookie");
+  if (!cookieHeader) return null;
+
+  return parseCookieValue(cookieHeader, "auth_token");
+};
+
 const normalizeCompanies = (payload: JWTPayload) =>
   (payload.companies ?? []).filter(
     (company): company is { id: string; name: string } =>
       Boolean(company?.id) && isUuid(company.id) && Boolean(company?.name),
   );
+
+const normalizeCompanyIds = (payload: JWTPayload, companies: { id: string }[]) => {
+  const fromCompanies = companies.map((company) => company.id);
+  const fromIds = (payload.companyIds ?? []).filter((companyId) => isUuid(companyId));
+  const active =
+    payload.activeCompanyId && isUuid(payload.activeCompanyId)
+      ? [payload.activeCompanyId]
+      : [];
+
+  return [...new Set([...fromCompanies, ...fromIds, ...active])];
+};
 
 const resolveActiveCompanyId = (
   payload: JWTPayload,
@@ -31,6 +98,7 @@ const buildSessionFromPayload = (
   payload: JWTPayload,
   input: {
     companies: { id: string; name: string }[];
+    companyIds: string[];
     clinics?: {
       id: string;
       name: string;
@@ -39,10 +107,22 @@ const buildSessionFromPayload = (
   },
 ) => {
   const applicationId = payload.applicationId ?? payload.application;
-  const companyIds = input.companies.map((company) => company.id);
+  const companyIds = input.companyIds;
   const activeClinicId = resolveActiveCompanyId(payload, companyIds);
 
+  const companiesById = new Map(input.companies.map((company) => [company.id, company]));
   const clinicsById = new Map((input.clinics ?? []).map((clinic) => [clinic.id, clinic]));
+  const orderedCompanies = companyIds.map((companyId) => {
+    const company = companiesById.get(companyId);
+    if (company) return company;
+
+    const clinic = clinicsById.get(companyId);
+    return {
+      id: companyId,
+      name: clinic?.name ?? `Clinica ${companyId.slice(0, 8)}`,
+    };
+  });
+
   const orderedClinics = companyIds
     .map((companyId) => clinicsById.get(companyId) ?? null)
     .filter(
@@ -66,7 +146,7 @@ const buildSessionFromPayload = (
       applicationId,
       clinic: activeClinic,
       clinics: orderedClinics,
-      companies: input.companies,
+      companies: orderedCompanies,
       activeClinicId,
       activeCompanyId: activeClinicId,
     },
@@ -78,9 +158,9 @@ const buildSessionFromPayload = (
 
 const getSessionLogic = async (input?: unknown) => {
   try {
-    void input;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    const tokenFromInput = getTokenFromInput(input);
+    const cookieStore = tokenFromInput ? null : await cookies();
+    const token = tokenFromInput ?? cookieStore?.get("auth_token")?.value;
     console.log("Auth Debug - Token encontrado:", Boolean(token));
 
     if (!token) return null;
@@ -91,9 +171,8 @@ const getSessionLogic = async (input?: unknown) => {
 
     const applicationId = payload.applicationId ?? payload.application;
     const companies = normalizeCompanies(payload);
+    const companyIds = normalizeCompanyIds(payload, companies);
     console.log("Auth Debug - Companies filtradas:", companies);
-
-    const companyIds = companies.map((company) => company.id);
     console.log("Auth Debug - CompanyIds:", companyIds);
 
     try {
@@ -165,6 +244,7 @@ const getSessionLogic = async (input?: unknown) => {
 
       return buildSessionFromPayload(payload, {
         companies,
+        companyIds,
         clinics: localClinics,
       });
     } catch (dbError) {
@@ -183,6 +263,7 @@ const getSessionLogic = async (input?: unknown) => {
 
       return buildSessionFromPayload(payload, {
         companies,
+        companyIds,
       });
     }
   } catch (error) {

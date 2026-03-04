@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
 import { actionClient } from "@/lib/next-safe-action";
@@ -43,6 +43,22 @@ type AdminTicketsApiResponseItem = {
   } | null;
 };
 
+const getCookieValueFromHeader = (
+  cookieHeader: string | null,
+  key: string,
+): string | null => {
+  if (!cookieHeader) return null;
+
+  const cookieEntries = cookieHeader.split(";");
+  for (const entry of cookieEntries) {
+    const [rawName, ...rest] = entry.trim().split("=");
+    if (rawName !== key) continue;
+    return decodeURIComponent(rest.join("="));
+  }
+
+  return null;
+};
+
 const getAdminConnectionConfig = () => {
   const adminApiUrl = process.env.NEXT_PUBLIC_ADMIN_API_URL;
   const internalKey = process.env.INTERNAL_API_KEY;
@@ -61,11 +77,19 @@ const getAdminConnectionConfig = () => {
 export const createSupportTicket = actionClient
   .schema(createSupportTicketSchema)
   .action(async ({ parsedInput }) => {
-    const session = await auth.api.getSession();
+    const requestHeaders = await headers();
+    const session = await auth.api.getSession({ headers: requestHeaders });
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    const token =
+      cookieStore.get("auth_token")?.value ??
+      getCookieValueFromHeader(requestHeaders.get("cookie"), "auth_token");
 
-    const clinicId = session?.user?.clinic?.id ?? session?.user?.activeCompanyId;
+    const clinicId =
+      session?.user?.clinic?.id ??
+      session?.user?.activeClinicId ??
+      session?.user?.activeCompanyId ??
+      session?.user?.clinics?.[0]?.id ??
+      session?.user?.companies?.[0]?.id;
 
     if (!session?.user || !clinicId) {
       throw new Error("Nao autorizado ou clinica nao encontrada.");
@@ -104,15 +128,24 @@ export const createSupportTicket = actionClient
   });
 
 export const getSupportTickets = actionClient.action(async () => {
-  const session = await auth.api.getSession();
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders });
+  const clinicId =
+    session?.user?.clinic?.id ??
+    session?.user?.activeClinicId ??
+    session?.user?.activeCompanyId ??
+    session?.user?.clinics?.[0]?.id ??
+    session?.user?.companies?.[0]?.id;
 
-  if (!session?.user || !session.user.clinic?.id) {
+  if (!session?.user || !clinicId) {
     throw new Error("Nao autorizado ou clinica nao encontrada.");
   }
 
   const { adminApiUrl } = getAdminConnectionConfig();
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  const token =
+    cookieStore.get("auth_token")?.value ??
+    getCookieValueFromHeader(requestHeaders.get("cookie"), "auth_token");
 
   if (!token) {
     throw new Error("Sessao invalida.");
