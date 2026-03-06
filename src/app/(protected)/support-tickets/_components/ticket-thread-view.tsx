@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import {
   getSupportTicketThread,
   replyToSupportTicket,
-  SupportTicketThread,
   SupportTicketMessage,
+  SupportTicketThread,
 } from "@/actions/support-tickets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ export default function TicketThreadView({
     initialData.messages,
   );
   const [messageInput, setMessageInput] = React.useState("");
+  const pendingMessageIdRef = React.useRef<string | null>(null);
 
   const loadThreadAction = useAction(getSupportTicketThread, {
     onSuccess: ({ data }) => {
@@ -41,18 +42,45 @@ export default function TicketThreadView({
 
   const replyAction = useAction(replyToSupportTicket, {
     onSuccess: () => {
-      setMessageInput("");
       toast.success("Mensagem enviada.");
+      pendingMessageIdRef.current = null;
       loadThreadAction.execute({ ticketId: initialData.ticket.id });
     },
-    onError: () => toast.error("Erro ao enviar mensagem."),
+    onError: () => {
+      if (pendingMessageIdRef.current) {
+        setMessages((prev) =>
+          prev.filter((message) => message.id !== pendingMessageIdRef.current),
+        );
+      }
+      pendingMessageIdRef.current = null;
+      toast.error("Erro ao enviar mensagem.");
+    },
   });
 
   const handleSendMessage = () => {
-    if (messageInput.trim().length < 2) return;
+    const content = messageInput.trim();
+    if (content.length < 2) return;
+
+    const optimisticMessageId = `optimistic-${Date.now()}`;
+    pendingMessageIdRef.current = optimisticMessageId;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: optimisticMessageId,
+        content,
+        createdAt: new Date().toISOString(),
+        userId: String(currentUserId),
+        authorName: null,
+        authorEmail: null,
+        source: "user",
+      },
+    ]);
+    setMessageInput("");
+
     replyAction.execute({
       ticketId: initialData.ticket.id,
-      content: messageInput,
+      content,
     });
   };
 
@@ -80,7 +108,7 @@ export default function TicketThreadView({
           <ScrollArea className="h-[450px] rounded-md border p-4">
             <div className="space-y-4">
               {messages.map((message) => {
-                const isUser = message.userId === currentUserId;
+                const isUser = String(message.userId) === String(currentUserId);
                 return (
                   <div
                     key={message.id}

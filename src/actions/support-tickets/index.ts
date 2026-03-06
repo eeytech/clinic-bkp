@@ -75,6 +75,7 @@ type AdminTicketMessageApiResponseItem = {
   content?: string | null;
   createdAt?: string | null;
   userId?: string | null;
+  source?: "user" | "support" | null;
   user?: {
     id?: string | null;
     name?: string | null;
@@ -295,12 +296,23 @@ export const getSupportTicketThread = actionClient
 
     if (response.ok) {
       const data = await response.json().catch(() => []);
+      console.dir(
+        {
+          scope: "getSupportTicketThread",
+          ticketId: parsedInput.ticketId,
+          responseStatus: response.status,
+          data,
+        },
+        { depth: null },
+      );
+
       const rawMessages = (Array.isArray(data)
         ? data
         : []) as AdminTicketMessageApiResponseItem[];
 
       messages = rawMessages.map((message, index) => {
         const authorId = String(message.userId ?? message.user?.id ?? "");
+        const isFromUser = authorId === String(userId);
 
         return {
           id: String(message.id ?? `${parsedInput.ticketId}-${index}`),
@@ -309,7 +321,7 @@ export const getSupportTicketThread = actionClient
           userId: authorId,
           authorName: message.user?.name ?? null,
           authorEmail: message.user?.email ?? null,
-          source: authorId === userId ? "user" : "support",
+          source: isFromUser ? "user" : "support",
         } satisfies SupportTicketMessage;
       });
     }
@@ -347,9 +359,9 @@ export const replyToSupportTicket = actionClient
       ticketId: parsedInput.ticketId,
     });
 
-    const response = await fetch(
-      `${adminApiUrl}/api/tickets/${parsedInput.ticketId}/messages`,
-      {
+    try {
+      const endpoint = `${adminApiUrl}/api/tickets/${parsedInput.ticketId}/messages`;
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -357,21 +369,45 @@ export const replyToSupportTicket = actionClient
         },
         body: JSON.stringify({ content: parsedInput.content }),
         cache: "no-store",
-      },
-    );
+      });
 
-    const data = await response.json().catch(() => ({}));
+      const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      throw new Error(
-        data?.error || "Erro ao enviar mensagem para o chamado.",
-      );
+      if (!response.ok) {
+        const isAuthError = response.status === 401 || response.status === 403;
+        console.error("replyToSupportTicket Debug - HTTP error", {
+          ticketId: parsedInput.ticketId,
+          endpoint,
+          status: response.status,
+          isAuthError,
+          hasToken: Boolean(token),
+          responseData: data,
+        });
+
+        throw new Error(
+          data?.error ||
+            (isAuthError
+              ? "Erro de autenticacao ao enviar resposta."
+              : "Erro ao enviar mensagem para o chamado."),
+        );
+      }
+
+      revalidatePath("/support-tickets");
+      return {
+        success: true,
+        ticketId: parsedInput.ticketId,
+        messageId: String(data?.message?.id ?? ""),
+      };
+    } catch (error) {
+      const endpoint = `${adminApiUrl}/api/tickets/${parsedInput.ticketId}/messages`;
+      const isNetworkOrUrlError = error instanceof TypeError;
+      console.error("replyToSupportTicket Debug - request failed", {
+        ticketId: parsedInput.ticketId,
+        endpoint,
+        hasToken: Boolean(token),
+        isNetworkOrUrlError,
+        error,
+      });
+      throw error;
     }
-
-    revalidatePath("/support-tickets");
-    return {
-      success: true,
-      ticketId: parsedInput.ticketId,
-      messageId: String(data?.message?.id ?? ""),
-    };
   });

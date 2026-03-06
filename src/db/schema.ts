@@ -217,6 +217,10 @@ export const supportTicketStatusEnum = pgEnum("support_ticket_status", [
   "in_progress", // Em Andamento
   "resolved", // Resolvido
 ]);
+export const supportMessageSourceEnum = pgEnum("support_message_source", [
+  "user",
+  "support",
+]);
 
 // --- TABLES ---
 
@@ -615,6 +619,21 @@ export const supportTicketsTable = pgTable("support_tickets", {
     .$onUpdate(() => new Date()),
 });
 
+export const supportMessagesTable = pgTable("support_messages", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id")
+    .notNull()
+    .references(() => supportTicketsTable.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  source: supportMessageSourceEnum("source").notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
 // --- NEW TABLES for Patient Detail Tabs ---
 
 export const documentsTable = pgTable("documents", {
@@ -701,6 +720,7 @@ export const usersTableRelations = relations(usersTable, ({ many }) => ({
   anamneses: many(anamnesesTable),
   createdClinicFinances: many(clinicFinancesTable, { relationName: "creator" }),
   supportTickets: many(supportTicketsTable), // Adicionado
+  supportMessages: many(supportMessagesTable),
 }));
 
 export const userClinicsTableRelations = relations(
@@ -885,13 +905,28 @@ export const appointmentsTableRelations = relations(
 
 export const supportTicketsTableRelations = relations(
   supportTicketsTable,
-  ({ one }) => ({
+  ({ one, many }) => ({
     clinic: one(clinicsTable, {
       fields: [supportTicketsTable.clinicId],
       references: [clinicsTable.id],
     }),
     user: one(usersTable, {
       fields: [supportTicketsTable.userId],
+      references: [usersTable.id],
+    }),
+    messages: many(supportMessagesTable),
+  }),
+);
+
+export const supportMessagesTableRelations = relations(
+  supportMessagesTable,
+  ({ one }) => ({
+    ticket: one(supportTicketsTable, {
+      fields: [supportMessagesTable.ticketId],
+      references: [supportTicketsTable.id],
+    }),
+    user: one(usersTable, {
+      fields: [supportMessagesTable.userId],
       references: [usersTable.id],
     }),
   }),
