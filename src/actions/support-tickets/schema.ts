@@ -18,6 +18,25 @@ export type CreateSupportTicketSchema = z.infer<
   typeof createSupportTicketSchema
 >;
 
+export const supportTicketThreadSchema = z.object({
+  ticketId: z.string().uuid("Chamado invalido."),
+});
+
+export type SupportTicketThreadSchema = z.infer<
+  typeof supportTicketThreadSchema
+>;
+
+export const replySupportTicketSchema = z.object({
+  ticketId: z.string().uuid("Chamado invalido."),
+  content: z
+    .string()
+    .trim()
+    .min(2, "A mensagem precisa ter pelo menos 2 caracteres.")
+    .max(2000, "A mensagem pode ter no maximo 2000 caracteres."),
+});
+
+export type ReplySupportTicketSchema = z.infer<typeof replySupportTicketSchema>;
+
 // Schema opcional para atualizar status (se necessário no futuro)
 export const updateSupportTicketStatusSchema = z.object({
   id: z.number(),

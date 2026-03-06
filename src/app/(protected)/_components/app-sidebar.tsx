@@ -1,15 +1,12 @@
 "use client";
 
-import * as React from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   DollarSign,
   LayoutDashboard,
   LifeBuoy,
   Loader2,
+  LockKeyhole,
   LogOut,
   Repeat,
   Settings,
@@ -17,9 +14,14 @@ import {
   Users,
   UsersRound,
 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import * as React from "react";
 import { toast } from "sonner";
 
 import { getClinic } from "@/actions/clinic/get-clinic";
+import { ChangePasswordDialog } from "@/components/shared/change-password-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -71,6 +73,7 @@ export function AppSidebar() {
   const session = authClient.useSession();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
   const [clinicData, setClinicData] = React.useState<ClinicData | null>(null);
   const [isLoadingClinic, setIsLoadingClinic] = React.useState(false);
 
@@ -190,6 +193,16 @@ export function AppSidebar() {
               </DropdownMenuItem>
 
               <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setIsChangePasswordOpen(true);
+                }}
+              >
+                <LockKeyhole className="mr-2 size-4" />
+                Alterar Senha
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
                 onClick={handleSignOut}
                 className="text-red-600 focus:text-red-600"
               >
@@ -225,6 +238,10 @@ export function AppSidebar() {
             )}
           </DialogContent>
         </Dialog>
+        <ChangePasswordDialog
+          open={isChangePasswordOpen}
+          onOpenChange={setIsChangePasswordOpen}
+        />
       </SidebarFooter>
     </Sidebar>
   );

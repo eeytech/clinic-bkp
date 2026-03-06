@@ -47,7 +47,7 @@ export default async function SupportTicketsPage() {
         <SupportTicketForm />
 
         {/* Tabela de chamados existentes */}
-        <SupportTicketsTable data={tickets} />
+        <SupportTicketsTable data={tickets} currentUserId={session.user.id} />
       </PageContent>
     </PageContainer>
   );
