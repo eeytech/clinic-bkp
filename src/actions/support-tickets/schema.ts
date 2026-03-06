@@ -19,7 +19,7 @@ export type CreateSupportTicketSchema = z.infer<
 >;
 
 export const supportTicketThreadSchema = z.object({
-  ticketId: z.string().uuid("Chamado invalido."),
+  ticketId: z.string().trim().min(1, "Chamado invalido."),
 });
 
 export type SupportTicketThreadSchema = z.infer<
@@ -27,7 +27,7 @@ export type SupportTicketThreadSchema = z.infer<
 >;
 
 export const replySupportTicketSchema = z.object({
-  ticketId: z.string().uuid("Chamado invalido."),
+  ticketId: z.string().trim().min(1, "Chamado invalido."),
   content: z
     .string()
     .trim()
