@@ -1,34 +1,39 @@
+// src/app/(protected)/support-tickets/_components/table-columns.tsx
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { MessageSquare } from "lucide-react";
+import Link from "next/link";
 
 import { SupportTicketListItem } from "@/actions/support-tickets";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 
-export type SupportTicketWithUser = SupportTicketListItem;
-
-const getStatusProps = (status: SupportTicketWithUser["status"]) => {
+const getStatusProps = (status: SupportTicketListItem["status"]) => {
   switch (status) {
     case "pending":
     case "aguardando":
+    case "Aberto":
       return {
-        label: "Pendente",
+        label: "Aberto",
         color: "bg-yellow-100 text-yellow-800 border-yellow-300",
       };
     case "in_progress":
     case "em_atendimento":
+    case "Em Atendimento":
       return {
-        label: "Em Andamento",
+        label: "Em Atendimento",
         color: "bg-blue-100 text-blue-800 border-blue-300",
       };
     case "resolved":
     case "concluido":
+    case "Resolvido":
       return {
-        label: "Concluido",
+        label: "Resolvido",
         color: "bg-green-100 text-green-800 border-green-300",
       };
     default:
@@ -39,30 +44,21 @@ const getStatusProps = (status: SupportTicketWithUser["status"]) => {
   }
 };
 
-export const columns: ColumnDef<SupportTicketWithUser>[] = [
-  {
-    accessorKey: "id",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="#" />,
-    cell: ({ row }) => row.original.id,
-    enableSorting: true,
-  },
+export const columns: ColumnDef<SupportTicketListItem>[] = [
   {
     accessorKey: "subject",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Assunto" />
     ),
-    cell: ({ row }) => row.original.subject,
-    enableSorting: true,
-  },
-  {
-    accessorKey: "description",
-    header: "Descricao",
-    cell: ({ row }) => <p className="max-w-xs truncate">{row.original.description}</p>,
-    enableSorting: false,
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.subject}</span>
+    ),
   },
   {
     accessorKey: "status",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Status" />
+    ),
     cell: ({ row }) => {
       const { label, color } = getStatusProps(row.original.status);
       return (
@@ -71,36 +67,28 @@ export const columns: ColumnDef<SupportTicketWithUser>[] = [
         </Badge>
       );
     },
-    enableSorting: true,
-  },
-  {
-    accessorKey: "user.name",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Aberto por" />
-    ),
-    cell: ({ row }) => row.original.user?.name ?? row.original.user?.email ?? "-",
-    enableSorting: true,
   },
   {
     accessorKey: "createdAt",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Data Abertura" />
+      <DataTableColumnHeader column={column} title="Aberto em" />
     ),
     cell: ({ row }) =>
       format(new Date(row.original.createdAt), "dd/MM/yyyy HH:mm", {
         locale: ptBR,
       }),
-    enableSorting: true,
   },
   {
-    accessorKey: "updatedAt",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Ultima Atualizacao" />
+    id: "actions",
+    cell: ({ row }) => (
+      <div className="flex justify-end">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={`/support-tickets/${row.original.id}`}>
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Ver Conversa
+          </Link>
+        </Button>
+      </div>
     ),
-    cell: ({ row }) =>
-      format(new Date(row.original.updatedAt), "dd/MM/yyyy HH:mm", {
-        locale: ptBR,
-      }),
-    enableSorting: true,
   },
 ];
